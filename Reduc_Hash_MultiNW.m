@@ -1,0 +1,41 @@
+function varargout = Reduc_Hash_MultiNW(varargin)
+dirname_load = '/home/lf/much_code/monog_file/';
+WTrue =load([dirname_load,'Wtrue_NWMulti_flags.txt']);
+paras.nneighbors = 5;
+batch = varargin{1}
+rev_paras.pos = [1:10:100 100:20:200 200:50:500];
+paras.delta = 0.1;
+paras.gamma = 1e-7;
+paras.gamma1=1e-9;
+paras.gamma2=1e-3;
+num=0
+feature_train = load([dirname_load,'train_NWMulti.txt']);
+feature_test = load([dirname_load,'test_NWMulti.txt']);
+train_num=size(feature_train,1);%N*L
+test_num=size(feature_test,1);%N*L
+for M=[1,2,3,4]
+    dirname_write = ['/home/lf/much_code/dblp_mongo_vector/Reduc_Hash/MultiNW_',batch,'/'];
+    R =load([dirname_load,'NusWideMulti_CollectMatrix_',batch,'.txt']);
+    XX = [feature_train; feature_test];
+    sampleMean = mean(XX,1);
+    XX = (double(XX)-repmat(sampleMean,size(XX,1),1));
+    train_data = XX(1:train_num, :);%N*L
+    test_data = XX(train_num+1:end, :);%N*L
+    data.test_data = test_data'; %L*N
+    data.train_data = train_data';
+    %paras.RXXT=train_data'*train_data;
+    for K =[8,16,24,32]
+	num = num+1;
+        paras.alpha = 2/K;
+	t1=clock;
+        [test_B,train_B]=SemiHash_Stage(M,K,dirname_write,R,data,paras);
+        t2 = clock;
+	resRev=revolution_test(WTrue,test_B,train_B,M,K,rev_paras);
+        t3=clock;
+	resRev.train_time = etime(t2,t1);
+	resRev.test_time = etime(t3,t2);
+	resRev.M = M;
+	resRev.K = K;
+        save([dirname_write,'recRev_NWMulti_',int2str(M),'_',int2str(K),'.mat'],'resRev');
+    end
+end
